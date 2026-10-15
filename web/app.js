@@ -5,6 +5,7 @@ const state = {
   filter: "all", search: "", sort: "created", offset: 0, total: 0, limit: 100,
   households: [], groceryLists: [], householdId: null, groceryListId: null, groceryItems: [],
   groceryFilter: "needed", grocerySearch: "", editingGroceryItem: null,
+  familyTasks: [], familyMembers: [], familyFilter: "all", familySearch: "", editingFamilyTask: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -135,9 +136,13 @@ function renderTask(task) {
 
 function render() {
   if (state.view === "groceries") { showGroceryWorkspace(); return; }
+  if (state.view === "family_tasks") { showFamilyWorkspace(); return; }
+  $("#task-footer").classList.remove("hidden");
   ["#task-welcome", "#task-stats", "#task-panel"].forEach((selector) => $(selector).classList.remove("hidden"));
   $("#grocery-workspace").classList.add("hidden");
+  $("#family-workspace").classList.add("hidden");
   $("#quick-add").classList.remove("hidden");
+  $("#quick-add").innerHTML = '<span>＋</span> New task';
   const list = $("#task-list"); list.replaceChildren();
   const tasks = getVisibleTasks();
   tasks.forEach((task) => list.append(renderTask(task)));
@@ -164,10 +169,88 @@ function render() {
 
 function showGroceryWorkspace() {
   ["#task-welcome", "#task-stats", "#task-panel"].forEach((selector) => $(selector).classList.add("hidden"));
-  $("#grocery-workspace").classList.remove("hidden"); $("#quick-add").classList.add("hidden");
+  $("#grocery-workspace").classList.remove("hidden"); $("#family-workspace").classList.add("hidden"); $("#quick-add").classList.add("hidden"); $("#task-footer").classList.add("hidden");
   $("#view-crumb").textContent = "Groceries";
   document.querySelectorAll(".nav-item").forEach((item) => item.classList.toggle("active", item.dataset.view === "groceries"));
 }
+
+function showFamilyWorkspace() {
+  ["#task-welcome", "#task-stats", "#task-panel", "#grocery-workspace"].forEach((selector) => $(selector).classList.add("hidden"));
+  $("#family-workspace").classList.remove("hidden"); $("#quick-add").classList.remove("hidden"); $("#task-footer").classList.add("hidden");
+  $("#quick-add").innerHTML = '<span>＋</span> New family task';
+  $("#view-crumb").textContent = "Family Tasks";
+  document.querySelectorAll(".nav-item").forEach((item) => item.classList.toggle("active", item.dataset.view === "family_tasks"));
+}
+
+async function loadFamilyWorkspace() {
+  showFamilyWorkspace();
+  state.households = await api("/groceries/households");
+  if (!state.households.some((household) => household.id === state.householdId)) state.householdId = state.households[0]?.id ?? null;
+  const select = $("#family-household-select"); select.replaceChildren();
+  state.households.forEach((household) => { const option = document.createElement("option"); option.value = household.id; option.textContent = household.name; select.append(option); });
+  if (!state.householdId) { select.classList.add("hidden"); $("#family-no-household").classList.remove("hidden"); $("#family-task-content").classList.add("hidden"); return; }
+  select.classList.remove("hidden"); select.value = String(state.householdId);
+  $("#family-no-household").classList.add("hidden"); $("#family-task-content").classList.remove("hidden");
+  const [members, summary] = await Promise.all([
+    api(`/groceries/households/${state.householdId}/members`),
+    api(`/family-tasks/households/${state.householdId}/summary`),
+  ]);
+  state.familyMembers = members;
+  const assignee = $("#family-assignee"); assignee.replaceChildren();
+  const none = document.createElement("option"); none.value = ""; none.textContent = "Anyone in the family"; assignee.append(none);
+  members.forEach((member) => { const option = document.createElement("option"); option.value = member.user_id; option.textContent = member.full_name; assignee.append(option); });
+  $("#family-todo").textContent = summary.todo; $("#family-progress").textContent = summary.in_progress; $("#family-done").textContent = summary.done;
+  await loadFamilyTasks();
+}
+
+async function loadFamilyTasks() {
+  if (!state.householdId) return;
+  const params = new URLSearchParams();
+  if (state.familyFilter !== "all") params.set("status", state.familyFilter);
+  if (state.familySearch.trim()) params.set("search", state.familySearch.trim());
+  const query = params.toString();
+  state.familyTasks = await api(`/family-tasks/households/${state.householdId}/tasks${query ? `?${query}` : ""}`);
+  const list = $("#family-task-list"); list.replaceChildren();
+  state.familyTasks.forEach((task) => list.append(renderFamilyTask(task)));
+  $("#family-task-count").textContent = `${state.familyTasks.length} ${state.familyTasks.length === 1 ? "task" : "tasks"}`;
+  $("#family-no-tasks").classList.toggle("hidden", state.familyTasks.length !== 0);
+  document.querySelectorAll("[data-family-filter]").forEach((button) => button.classList.toggle("selected", button.dataset.familyFilter === state.familyFilter));
+}
+
+function renderFamilyTask(task) {
+  const row = document.createElement("article"); row.className = `task-row family-task-row ${task.status === "done" ? "is-done" : ""}`;
+  const check = document.createElement("button"); check.className = `task-check ${task.status === "done" ? "checked" : ""}`; check.textContent = task.status === "done" ? "✓" : "";
+  check.setAttribute("aria-label", task.status === "done" ? "Reopen family task" : "Complete family task");
+  check.addEventListener("click", () => updateFamilyTask(task, { status: task.status === "done" ? "todo" : "done" }));
+  const content = document.createElement("div"); content.className = "task-main";
+  const titleLine = document.createElement("div"); titleLine.className = "task-title-line";
+  const title = document.createElement("button"); title.className = "task-title"; title.textContent = task.title; title.addEventListener("click", () => openFamilyTask(task)); titleLine.append(title);
+  const priority = document.createElement("span"); priority.className = `priority priority-${task.priority}`; priority.textContent = task.priority; titleLine.append(priority); content.append(titleLine);
+  if (task.description) { const description = document.createElement("p"); description.className = "task-description"; description.textContent = task.description; content.append(description); }
+  const meta = document.createElement("div"); meta.className = "task-meta";
+  const assignee = document.createElement("span"); assignee.className = "task-project"; assignee.textContent = task.assignee_name ? `Assigned to ${task.assignee_name}` : "Anyone in the family"; meta.append(assignee);
+  const creator = document.createElement("span"); creator.textContent = `Added by ${task.created_by_name}`; meta.append(creator);
+  if (task.due_date) { const date = new Date(`${task.due_date}T00:00:00`); const due = document.createElement("span"); due.className = `due-label ${task.status !== "done" && date < new Date(new Date().toDateString()) ? "overdue" : ""}`; due.textContent = task.status === "done" ? "Completed" : niceDue(task.due_date); meta.append(due); }
+  content.append(meta);
+  const actions = document.createElement("div"); actions.className = "task-actions";
+  const status = document.createElement("select"); status.className = "status-select"; status.setAttribute("aria-label", "Family task status");
+  [["todo", "To do"], ["in_progress", "In progress"], ["done", "Completed"]].forEach(([value, label]) => { const option = document.createElement("option"); option.value = value; option.textContent = label; option.selected = task.status === value; status.append(option); });
+  status.addEventListener("change", () => updateFamilyTask(task, { status: status.value }));
+  const remove = document.createElement("button"); remove.className = "icon-button task-remove"; remove.textContent = "×"; remove.title = "Delete family task"; remove.addEventListener("click", () => deleteFamilyTask(task));
+  actions.append(status, remove); row.append(check, content, actions); return row;
+}
+
+function openFamilyTask(task = null) {
+  if (!state.householdId) { toast("Create or join a household first.", "error"); return; }
+  state.editingFamilyTask = task; $("#family-task-form").reset();
+  $("#family-task-heading").textContent = task ? "Edit family task" : "New family task";
+  $("#family-status").value = "todo"; $("#family-assignee").value = "";
+  if (task) { $("#family-title").value = task.title; $("#family-description").value = task.description; $("#family-assignee").value = task.assignee_id || ""; $("#family-priority").value = task.priority; $("#family-due").value = task.due_date || ""; $("#family-status").value = task.status; }
+  $("#family-task-dialog").showModal(); setTimeout(() => $("#family-title").focus(), 50);
+}
+
+async function updateFamilyTask(task, changes) { try { await api(`/family-tasks/${task.id}`, { method: "PATCH", body: JSON.stringify(changes) }); await loadFamilyWorkspace(); } catch (error) { toast(error.message, "error"); } }
+async function deleteFamilyTask(task) { if (!confirm(`Delete “${task.title}” from Family Tasks?`)) return; try { await api(`/family-tasks/${task.id}`, { method: "DELETE" }); toast("Family task deleted."); await loadFamilyWorkspace(); } catch (error) { toast(error.message, "error"); } }
 
 async function loadGroceryWorkspace() {
   showGroceryWorkspace();
@@ -340,12 +423,12 @@ $("#auth-form").addEventListener("submit", async (event) => {
 });
 
 $("#signout").addEventListener("click", () => signOut());
-$("#quick-add").addEventListener("click", openTaskDialog);
+$("#quick-add").addEventListener("click", () => state.view === "family_tasks" ? openFamilyTask() : openTaskDialog());
 $("#empty-add").addEventListener("click", openTaskDialog);
 $("#load-more").addEventListener("click", () => loadTasks(false).catch((error) => toast(error.message, "error")));
 $("#sort-select").addEventListener("change", (event) => { state.sort = event.target.value; loadTasks(); });
 $("#task-search").addEventListener("input", (event) => { clearTimeout(state.searchTimer); state.search = event.target.value; state.searchTimer = setTimeout(() => loadTasks(), 300); });
-document.querySelectorAll(".nav-item").forEach((item) => item.addEventListener("click", () => { state.view = item.dataset.view; state.filter = "all"; setFilterChips(); if (state.view === "groceries") loadGroceryWorkspace().catch((error) => toast(error.message, "error")); else loadTasks(); }));
+document.querySelectorAll(".nav-item").forEach((item) => item.addEventListener("click", () => { state.view = item.dataset.view; state.filter = "all"; setFilterChips(); if (state.view === "groceries") loadGroceryWorkspace().catch((error) => toast(error.message, "error")); else if (state.view === "family_tasks") loadFamilyWorkspace().catch((error) => toast(error.message, "error")); else loadTasks(); }));
 document.querySelectorAll(".filter-chip").forEach((chip) => chip.addEventListener("click", () => { state.filter = chip.dataset.filter; setFilterChips(); loadTasks(); }));
 $("#add-project-open").addEventListener("click", () => { if (state.view === "groceries") $("#grocery-list-dialog").showModal(); else $("#project-dialog").showModal(); });
 $("#project-form").addEventListener("submit", async (event) => {
@@ -372,6 +455,7 @@ document.querySelectorAll("[data-close]").forEach((button) => button.addEventLis
 document.querySelectorAll("dialog").forEach((dialog) => dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); }));
 
 $("#household-select").addEventListener("change", (event) => { state.householdId = Number(event.target.value); state.groceryListId = null; loadGroceryWorkspace().catch((error) => toast(error.message, "error")); });
+$("#family-household-select").addEventListener("change", (event) => { state.householdId = Number(event.target.value); loadFamilyWorkspace().catch((error) => toast(error.message, "error")); });
 $("#grocery-list-select").addEventListener("change", (event) => { state.groceryListId = Number(event.target.value); loadGroceryItems().catch((error) => toast(error.message, "error")); });
 $("#grocery-search").addEventListener("input", (event) => { clearTimeout(state.grocerySearchTimer); state.grocerySearch = event.target.value; state.grocerySearchTimer = setTimeout(() => loadGroceryItems().catch((error) => toast(error.message, "error")), 250); });
 document.querySelectorAll("[data-grocery-filter]").forEach((button) => button.addEventListener("click", () => { state.groceryFilter = button.dataset.groceryFilter; loadGroceryItems().catch((error) => toast(error.message, "error")); }));
@@ -385,6 +469,12 @@ $("#copy-invite").addEventListener("click", async () => { try { await navigator.
 $("#rotate-invite").addEventListener("click", async () => { const household = state.households.find((entry) => entry.id === state.householdId); if (!household || !confirm("Reset this code? Anyone with the old code will no longer be able to join.")) return; try { await api(`/groceries/households/${household.id}/rotate-code`, { method: "POST" }); await loadGroceryWorkspace(); toast("Invite code reset."); $("#household-dialog").showModal(); } catch (error) { toast(error.message, "error"); } });
 $("#grocery-list-form").addEventListener("submit", async (event) => { event.preventDefault(); try { const list = await api(`/groceries/households/${state.householdId}/lists`, { method: "POST", body: JSON.stringify({ name: $("#grocery-list-name").value.trim() }) }); state.groceryListId = list.id; $("#grocery-list-dialog").close(); toast("Grocery list created."); await loadGroceryWorkspace(); } catch (error) { toast(error.message, "error"); } });
 $("#grocery-item-form").addEventListener("submit", async (event) => { event.preventDefault(); const body = { name: $("#grocery-name").value.trim(), quantity: $("#grocery-quantity").value.trim(), category: $("#grocery-category").value.trim(), priority: $("#grocery-priority").value, deadline: $("#grocery-deadline").value || null, notes: $("#grocery-notes").value.trim() }; try { if (state.editingGroceryItem) await api(`/groceries/items/${state.editingGroceryItem.id}`, { method: "PATCH", body: JSON.stringify(body) }); else await api(`/groceries/lists/${state.groceryListId}/items`, { method: "POST", body: JSON.stringify(body) }); $("#grocery-item-dialog").close(); toast(state.editingGroceryItem ? "Item updated." : "Item added."); await loadGroceryItems(); } catch (error) { toast(error.message, "error"); } });
+$("#add-family-task").addEventListener("click", () => openFamilyTask()); $("#empty-add-family-task").addEventListener("click", () => openFamilyTask());
+$("#family-go-groceries").addEventListener("click", () => { state.view = "groceries"; loadGroceryWorkspace().catch((error) => toast(error.message, "error")); });
+$("#family-manage-household").addEventListener("click", async () => { state.view = "groceries"; try { await loadGroceryWorkspace(); $("#household-create-form").classList.toggle("hidden", state.households.length > 0); $("#household-share").classList.toggle("hidden", state.households.length === 0); $("#new-grocery-list").classList.toggle("hidden", state.households.length === 0); if (state.households.length) $("#invite-code-value").textContent = state.households.find((entry) => entry.id === state.householdId)?.invite_code || ""; $("#household-dialog").showModal(); } catch (error) { toast(error.message, "error"); } });
+$("#family-task-search").addEventListener("input", (event) => { clearTimeout(state.familySearchTimer); state.familySearch = event.target.value; state.familySearchTimer = setTimeout(() => loadFamilyTasks().catch((error) => toast(error.message, "error")), 250); });
+document.querySelectorAll("[data-family-filter]").forEach((button) => button.addEventListener("click", () => { state.familyFilter = button.dataset.familyFilter; loadFamilyTasks().catch((error) => toast(error.message, "error")); }));
+$("#family-task-form").addEventListener("submit", async (event) => { event.preventDefault(); const body = { title: $("#family-title").value.trim(), description: $("#family-description").value.trim(), assignee_id: $("#family-assignee").value ? Number($("#family-assignee").value) : null, priority: $("#family-priority").value, due_date: $("#family-due").value || null, status: $("#family-status").value }; try { if (state.editingFamilyTask) await api(`/family-tasks/${state.editingFamilyTask.id}`, { method: "PATCH", body: JSON.stringify(body) }); else await api(`/family-tasks/households/${state.householdId}/tasks`, { method: "POST", body: JSON.stringify(body) }); $("#family-task-dialog").close(); toast(state.editingFamilyTask ? "Family task updated." : "Added to the family plan."); await loadFamilyWorkspace(); } catch (error) { toast(error.message, "error"); } });
 
 setAuthMode(false);
 if (state.token) reloadAll();

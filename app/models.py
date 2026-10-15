@@ -35,6 +35,7 @@ class Household(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
     memberships: Mapped[list["HouseholdMember"]] = relationship(back_populates="household", cascade="all, delete-orphan")
     lists: Mapped[list["GroceryList"]] = relationship(back_populates="household", cascade="all, delete-orphan")
+    family_tasks: Mapped[list["FamilyTask"]] = relationship(back_populates="household", cascade="all, delete-orphan")
 
 
 class HouseholdMember(Base):
@@ -77,6 +78,26 @@ class GroceryItem(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
     grocery_list: Mapped[GroceryList] = relationship(back_populates="items")
+
+
+class FamilyTask(Base):
+    __tablename__ = "family_tasks"
+    __table_args__ = (Index("ix_family_tasks_household_status_due", "household_id", "status", "due_date"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(ForeignKey("households.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="todo", nullable=False)
+    priority: Mapped[str] = mapped_column(String(10), default="medium", nullable=False)
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    assignee_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+    household: Mapped[Household] = relationship(back_populates="family_tasks")
+    assignee: Mapped[User | None] = relationship(foreign_keys=[assignee_id])
+    created_by: Mapped[User] = relationship(foreign_keys=[created_by_id])
 
 
 class Project(Base):

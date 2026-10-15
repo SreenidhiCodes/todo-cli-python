@@ -184,3 +184,49 @@ class GroceryItemPublic(BaseModel):
     purchased_at: datetime | None
     created_at: datetime
     updated_at: datetime
+
+
+FamilyTaskStatus = Literal["todo", "in_progress", "done"]
+FamilyTaskPriority = Literal["low", "medium", "high", "urgent"]
+
+
+class FamilyTaskCreate(BaseModel):
+    title: CleanTitle
+    description: Annotated[str, Field(max_length=10000)] = ""
+    status: FamilyTaskStatus = "todo"
+    priority: FamilyTaskPriority = "medium"
+    due_date: date | None = None
+    assignee_id: int | None = None
+
+
+class FamilyTaskUpdate(BaseModel):
+    title: CleanTitle | None = None
+    description: Annotated[str, Field(max_length=10000)] | None = None
+    status: FamilyTaskStatus | None = None
+    priority: FamilyTaskPriority | None = None
+    due_date: date | None = None
+    assignee_id: int | None = None
+
+
+class FamilyTaskPublic(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    household_id: int
+    title: str
+    description: str
+    status: FamilyTaskStatus
+    priority: FamilyTaskPriority
+    due_date: date | None
+    assignee_id: int | None
+    assignee_name: str | None = None
+    created_by_id: int
+    created_by_name: str
+    completed_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class HouseholdMemberPublic(BaseModel):
+    user_id: int
+    full_name: str
+    role: str

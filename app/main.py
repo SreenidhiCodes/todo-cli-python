@@ -7,7 +7,7 @@ from sqlalchemy import text
 
 from app.config import get_settings
 from app.database import engine
-from app.routers import auth, groceries, projects, tasks
+from app.routers import auth, family_tasks, groceries, projects, tasks
 
 settings = get_settings()
 
@@ -36,6 +36,7 @@ app.include_router(auth.router, prefix=settings.api_prefix)
 app.include_router(tasks.router, prefix=settings.api_prefix)
 app.include_router(projects.router, prefix=settings.api_prefix)
 app.include_router(groceries.router, prefix=settings.api_prefix)
+app.include_router(family_tasks.router, prefix=settings.api_prefix)
 app.mount("/static", StaticFiles(directory="web"), name="static")
 
 

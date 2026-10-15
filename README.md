@@ -1,6 +1,6 @@
 # TaskFlow — Task Management API
 
-TaskFlow is a multi-user task manager with a responsive web dashboard and a FastAPI backend. It provides account registration and JWT authentication, personal task lists, project organization, and shared household grocery planning. Grocery items use free-form names and categories, flexible quantities, priorities, need-by dates, notes, and a purchase workflow. The API is documented through OpenAPI and can run on SQLite locally or PostgreSQL with Docker Compose.
+TaskFlow is a multi-user task manager with a responsive web dashboard and a FastAPI backend. It provides account registration and JWT authentication, personal task lists, project organization, shared household grocery planning, and a separate shared family task board. The API is documented through OpenAPI and can run on SQLite locally or PostgreSQL with Docker Compose.
 
 ## Why this is a portfolio project
 
@@ -16,6 +16,8 @@ This project demonstrates API design, authentication, relational data modeling, 
 - **Household groceries:** create shared household spaces, invite members with private rotating codes, and keep multiple grocery lists together
 - **Flexible shopping:** add items using your household's own names, amounts, and categories; set urgent/high/normal/low priority, a need-by day, and notes
 - **Shopping flow:** unpurchased items sort by priority and deadline; marking something picked up moves it out of the active queue, with an easy undo
+- **Family Tasks:** a shared chores, errands, and plans board with assignment, priority, due dates, notes, status, and completion tracking
+- **Personal and shared separation:** personal task records stay scoped to their account; Family Tasks are visible only to household members
 - **Access control:** household lists are visible only to authenticated members; invite codes can be reset by their owner
 - **Data and operations:** SQLAlchemy 2 ORM, Alembic migrations, SQLite development database, PostgreSQL deployment profile, Docker Compose, and `/healthz`
 - **API docs:** interactive Swagger UI at `/docs` and ReDoc at `/redoc`
@@ -92,9 +94,13 @@ Useful endpoints:
 | `GET`, `POST` | `/api/v1/groceries/households/{household_id}/lists` | List or create grocery lists |
 | `GET`, `POST` | `/api/v1/groceries/lists/{list_id}/items` | List or add items |
 | `PATCH`, `DELETE` | `/api/v1/groceries/items/{item_id}` | Update, pick up, or remove an item |
+| `GET` | `/api/v1/groceries/households/{household_id}/members` | List household members for assignment |
+| `GET`, `POST` | `/api/v1/family-tasks/households/{household_id}/tasks` | List or create shared family tasks |
+| `GET` | `/api/v1/family-tasks/households/{household_id}/summary` | Get family task counts |
+| `PATCH`, `DELETE` | `/api/v1/family-tasks/{task_id}` | Update, complete, or remove a family task |
 | `GET` | `/healthz` | Check API and database connectivity |
 
-In the dashboard, open **Groceries**, create a household, then create a list. Share the household invite code with family members; they sign into their own TaskFlow accounts and join using that code. Item names and categories are ordinary text, so each home can use the words it already knows.
+In the dashboard, open **Groceries**, create a household, then create a list. Share the household invite code with family members; they sign into their own TaskFlow accounts and join using that code. Item names and categories are ordinary text, so each home can use the words it already knows. Open **Family Tasks** to assign chores and errands within that household. Personal task views remain private to each account.
 
 Task list query parameters include `status`, `priority`, `project_id`, `tag`, `search`, `due_before`, `sort`, `direction`, `limit` (maximum 100), and `offset`. Example: `GET /api/v1/tasks?status=todo&priority=high&sort=due&direction=asc&limit=20`.
 
@@ -123,7 +129,7 @@ app/
   models.py          user, project, task, household, and grocery models
   schemas.py         request and response validation
   security.py        password hashing and JWT creation
-  routers/           authentication, project, task, and grocery endpoints
+  routers/           authentication, project, task, grocery, and family task endpoints
 web/
   index.html         responsive browser dashboard
   styles.css         dashboard styles
@@ -134,8 +140,8 @@ todo.py              original interactive CLI
 
 ## Resume description
 
-**TaskFlow — Multi-user Task Management API | Python, FastAPI, SQLAlchemy, PostgreSQL, Docker**
+**TaskFlow — Collaborative Task & Household Planning | Python, FastAPI, SQLAlchemy, PostgreSQL, Docker**
 
-Built a REST API for personal task and project management with JWT authentication, Argon2 password hashing, ownership-scoped CRUD, due dates, tags, priority workflows, search, filtering, and paginated results. Modeled relational data with SQLAlchemy and Alembic, added PostgreSQL container orchestration and health checks, and published interactive OpenAPI documentation.
+Built a REST API for personal task and project management plus household-shared groceries and family tasks, with JWT authentication, Argon2 password hashing, membership-scoped CRUD, assignments, deadlines, priorities, search, and status workflows. Modeled relational data with SQLAlchemy and Alembic, added PostgreSQL container orchestration and health checks, and published interactive OpenAPI documentation.
 
 Only list skills and deployment experience you can explain in an interview. A strong next step is to add automated endpoint tests and deploy a live demo with a small frontend client.

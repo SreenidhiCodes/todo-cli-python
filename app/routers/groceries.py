@@ -11,7 +11,7 @@ from app.dependencies import get_current_user
 from app.models import GroceryItem, GroceryList, Household, HouseholdMember, User
 from app.schemas import (GroceryItemCreate, GroceryItemPublic, GroceryItemUpdate,
                          GroceryListCreate, GroceryListPublic, HouseholdCreate,
-                         HouseholdJoin, HouseholdPublic)
+                         HouseholdJoin, HouseholdMemberPublic, HouseholdPublic)
 
 router = APIRouter(prefix="/groceries", tags=["groceries"])
 
@@ -82,6 +82,15 @@ def rotate_invite_code(household_id: int, db: Session = Depends(get_db), user: U
 def list_grocery_lists(household_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     require_household(db, household_id, user.id)
     return list(db.scalars(select(GroceryList).where(GroceryList.household_id == household_id).order_by(GroceryList.name)).all())
+
+
+@router.get("/households/{household_id}/members", response_model=list[HouseholdMemberPublic])
+def household_members(household_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    require_household(db, household_id, user.id)
+    rows = db.execute(select(User.id, User.full_name, HouseholdMember.role).join(
+        HouseholdMember, HouseholdMember.user_id == User.id).where(
+        HouseholdMember.household_id == household_id).order_by(User.full_name)).all()
+    return [HouseholdMemberPublic(user_id=row.id, full_name=row.full_name, role=row.role) for row in rows]
 
 
 @router.post("/households/{household_id}/lists", response_model=GroceryListPublic, status_code=status.HTTP_201_CREATED)
