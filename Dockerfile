@@ -6,6 +6,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
+COPY web ./web
 COPY migrations ./migrations
 COPY alembic.ini ./
 RUN useradd --create-home --shell /usr/sbin/nologin appuser && chown -R appuser:appuser /app

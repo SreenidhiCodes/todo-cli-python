@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f7fb">
+  <title>TaskFlow — make room for what matters</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <section id="auth-screen" class="auth-screen">
+    <div class="auth-art">
+      <a class="brand brand-light" href="/"><span class="brand-mark">T</span> taskflow</a>
+      <div class="art-copy">
+        <span class="eyebrow">LESS CHAOS, MORE MOMENTUM</span>
+        <h1>Make room for<br>what matters.</h1>
+        <p>A calmer place to collect your tasks, shape your plans, and get the important things done.</p>
+      </div>
+      <div class="art-card"><span class="art-check">✓</span><div><strong>Small steps count.</strong><p>Turn a busy day into a clear next step.</p></div><span class="sparkle">✳</span></div>
+      <span class="auth-orbit orbit-one"></span><span class="auth-orbit orbit-two"></span>
+    </div>
+    <div class="auth-panel">
+      <a class="brand brand-dark" href="/"><span class="brand-mark">T</span> taskflow</a>
+      <div class="auth-form-wrap">
+        <span class="eyebrow" id="auth-kicker">WELCOME BACK</span>
+        <h2 id="auth-title">Good to see you.</h2>
+        <p class="muted" id="auth-subtitle">Sign in to pick up where you left off.</p>
+        <form id="auth-form">
+          <label id="name-field" class="field hidden">Your name<input id="auth-name" type="text" autocomplete="name" placeholder="Alex Morgan"></label>
+          <label class="field">Email address<input id="auth-email" type="email" autocomplete="email" required placeholder="you@example.com"></label>
+          <label class="field">Password<input id="auth-password" type="password" autocomplete="current-password" required minlength="8" placeholder="At least 8 characters"></label>
+          <button id="auth-submit" class="button button-primary button-wide" type="submit">Sign in <span>→</span></button>
+        </form>
+        <p class="auth-switch"><span id="auth-switch-text">New to TaskFlow?</span> <button id="auth-switch" class="text-button">Create an account</button></p>
+        <p class="auth-note">Your tasks are private to your account.</p>
+      </div>
+      <div class="auth-footer">A little more focus, one day at a time.</div>
+    </div>
+  </section>
+
+  <div id="app-screen" class="app-shell hidden">
+    <aside class="sidebar">
+      <a class="brand brand-dark sidebar-brand" href="#"><span class="brand-mark">T</span> taskflow</a>
+      <div class="sidebar-label">WORKSPACE</div>
+      <nav class="side-nav" aria-label="Task views">
+        <button class="nav-item active" data-view="today"><span class="nav-icon">◷</span> Today <span class="nav-count" id="today-count">0</span></button>
+        <button class="nav-item" data-view="all"><span class="nav-icon">▤</span> All tasks</button>
+        <button class="nav-item" data-view="todo"><span class="nav-icon">○</span> To do</button>
+        <button class="nav-item" data-view="in_progress"><span class="nav-icon">◉</span> In progress</button>
+        <button class="nav-item" data-view="done"><span class="nav-icon">✓</span> Completed</button>
+      </nav>
+      <div class="sidebar-section-head"><span class="sidebar-label">PROJECTS</span><button id="add-project-open" class="icon-button small" title="New project">＋</button></div>
+      <div id="project-list" class="project-list"></div>
+      <div class="sidebar-bottom">
+        <div class="user-card"><div class="avatar" id="user-avatar">A</div><div class="user-copy"><strong id="user-name">Your account</strong><span id="user-email"></span></div><button id="signout" class="icon-button" title="Sign out">↗</button></div>
+        <a class="api-link" href="/docs" target="_blank" rel="noreferrer">API documentation <span>↗</span></a>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar"><div class="crumb"><span>Workspace</span><span class="crumb-slash">/</span><strong id="view-crumb">Today</strong></div><div class="top-actions"><span class="today-date" id="header-date"></span><button id="quick-add" class="button button-primary"><span>＋</span> New task</button></div></header>
+      <div class="content-wrap">
+        <section class="welcome-row"><div><div class="eyebrow" id="welcome-date"></div><h1 id="page-title">Today, at your pace.</h1><p id="page-subtitle" class="muted">A clear mind starts with a clear list.</p></div><div class="welcome-mark">✳</div></section>
+
+        <section class="stats-grid" aria-label="Task summary">
+          <article class="stat-card"><div class="stat-top"><span>All tasks</span><span class="stat-icon lavender">▤</span></div><strong id="stat-total">0</strong><small>in your workspace</small></article>
+          <article class="stat-card"><div class="stat-top"><span>To do</span><span class="stat-icon blue">○</span></div><strong id="stat-todo">0</strong><small>ready when you are</small></article>
+          <article class="stat-card"><div class="stat-top"><span>In progress</span><span class="stat-icon amber">◉</span></div><strong id="stat-progress">0</strong><small>currently underway</small></article>
+          <article class="stat-card"><div class="stat-top"><span>Completed</span><span class="stat-icon green">✓</span></div><strong id="stat-done">0</strong><small>nice work</small></article>
+        </section>
+
+        <section class="task-panel">
+          <div class="panel-heading"><div><h2 id="list-title">Today's focus</h2><p id="list-caption">Your next steps, all in one place.</p></div><div class="list-tools"><label class="search-box"><span>⌕</span><input id="task-search" type="search" placeholder="Search tasks" aria-label="Search tasks"></label><select id="sort-select" aria-label="Sort tasks"><option value="created">Recently added</option><option value="due">Due date</option><option value="priority">Priority</option><option value="title">Title</option></select></div></div>
+          <div class="filter-row"><button class="filter-chip selected" data-filter="all">Everything</button><button class="filter-chip" data-filter="todo">To do</button><button class="filter-chip" data-filter="in_progress">In progress</button><button class="filter-chip" data-filter="done">Completed</button><span id="result-count" class="result-count"></span></div>
+          <div id="task-list" class="task-list"></div>
+          <div id="empty-state" class="empty-state hidden"><div class="empty-illustration">✳</div><h3 id="empty-title">A little breathing room.</h3><p id="empty-copy">Nothing on your list yet. Add a task and make a start.</p><button id="empty-add" class="button button-soft">＋ Add your first task</button></div>
+          <div id="load-more-wrap" class="load-more-wrap hidden"><button id="load-more" class="button button-soft">Load more tasks</button></div>
+        </section>
+        <footer class="page-footer"><span>Made for your next small win.</span><span>TaskFlow <span class="footer-dot">·</span> <a href="/healthz" target="_blank" rel="noreferrer">System status</a></span></footer>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="task-dialog" class="modal">
+    <form id="task-form" method="dialog">
+      <div class="modal-heading"><div><span class="eyebrow">MAKE A PLAN</span><h2>New task</h2></div><button class="icon-button" type="button" data-close="task-dialog" aria-label="Close">×</button></div>
+      <label class="field">Task name<input id="task-title" required maxlength="200" placeholder="What needs doing?"></label>
+      <label class="field">A few details <span class="optional">optional</span><textarea id="task-description" rows="3" maxlength="10000" placeholder="Add a note or a helpful detail..."></textarea></label>
+      <div class="field-grid"><label class="field">Priority<select id="task-priority"><option value="medium">Medium</option><option value="low">Low</option><option value="high">High</option><option value="urgent">Urgent</option></select></label><label class="field">Due date<input id="task-due" type="date"></label></div>
+      <div class="field-grid"><label class="field">Project<select id="task-project"><option value="">No project</option></select></label><label class="field">Tags <span class="optional">comma separated</span><input id="task-tags" maxlength="300" placeholder="work, personal"></label></div>
+      <div class="modal-actions"><button type="button" class="button button-quiet" data-close="task-dialog">Cancel</button><button id="task-submit" class="button button-primary" type="submit">Create task <span>→</span></button></div>
+    </form>
+  </dialog>
+
+  <dialog id="project-dialog" class="modal modal-small">
+    <form id="project-form" method="dialog">
+      <div class="modal-heading"><div><span class="eyebrow">STAY ORGANIZED</span><h2>New project</h2></div><button class="icon-button" type="button" data-close="project-dialog" aria-label="Close">×</button></div>
+      <label class="field">Project name<input id="project-name" required maxlength="100" placeholder="e.g. Home refresh"></label>
+      <label class="field">Description <span class="optional">optional</span><textarea id="project-description" rows="3" maxlength="5000" placeholder="What is this project about?"></textarea></label>
+      <label class="field">Color<input id="project-color" type="color" value="#7564d8"></label>
+      <div class="modal-actions"><button type="button" class="button button-quiet" data-close="project-dialog">Cancel</button><button class="button button-primary" type="submit">Create project <span>→</span></button></div>
+    </form>
+  </dialog>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

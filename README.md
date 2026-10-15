@@ -1,6 +1,6 @@
 # TaskFlow — Task Management API
 
-TaskFlow is a multi-user task management backend built with FastAPI. It provides secure account registration and JWT authentication, personal task lists, project organization, due dates, tags, priority and status workflows, searchable and sortable pagination, and dashboard statistics. The API is documented through OpenAPI and can run on SQLite locally or PostgreSQL with Docker Compose.
+TaskFlow is a multi-user task manager with a responsive web dashboard and a FastAPI backend. It provides account registration and JWT authentication, personal task lists, project organization, due dates, tags, priority and status workflows, searchable and sortable pagination, and dashboard statistics. The API is documented through OpenAPI and can run on SQLite locally or PostgreSQL with Docker Compose.
 
 ## Why this is a portfolio project
 
@@ -15,6 +15,7 @@ This project demonstrates API design, authentication, relational data modeling, 
 - **Dashboard:** counts by workflow status and overdue tasks
 - **Data and operations:** SQLAlchemy 2 ORM, Alembic migrations, SQLite development database, PostgreSQL deployment profile, Docker Compose, and `/healthz`
 - **API docs:** interactive Swagger UI at `/docs` and ReDoc at `/redoc`
+- **Web app:** sign in or register at `/`, then create and organize tasks in the dashboard
 
 ## Run locally
 
@@ -31,7 +32,7 @@ alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-The local default is SQLite in `taskflow.db`. Open [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) to explore the API. The original interactive CLI remains available with `python todo.py` and uses its own local data store.
+The local default is SQLite in `taskflow.db`. Open [http://127.0.0.1:8000/](http://127.0.0.1:8000/) for the web dashboard or [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) to explore the API. The original interactive CLI remains available with `python todo.py` and uses its own local data store.
 
 ## Run with Docker and PostgreSQL
 
@@ -41,7 +42,7 @@ Copy-Item .env.example .env   # or cp .env.example .env
 docker compose up --build
 ```
 
-Compose starts PostgreSQL, waits for its health check, applies migrations, then starts the API. The database is stored in a named volume. `.env.example` contains local-only sample credentials; replace both `SECRET_KEY` and `POSTGRES_PASSWORD` before use, and configure secrets through the hosting provider for a public deployment.
+Compose starts PostgreSQL, waits for its health check, applies migrations, then starts the API and web dashboard. The database is stored in a named volume. `.env.example` contains local-only sample credentials; replace both `SECRET_KEY` and `POSTGRES_PASSWORD` before use, and configure secrets through the hosting provider for a public deployment.
 
 ## API walkthrough
 
@@ -112,6 +113,10 @@ app/
   schemas.py         request and response validation
   security.py        password hashing and JWT creation
   routers/           authentication, project, and task endpoints
+web/
+  index.html         responsive browser dashboard
+  styles.css         dashboard styles
+  app.js             dashboard interactions and API client
 migrations/          Alembic environment and initial schema
 todo.py              original interactive CLI
 ```

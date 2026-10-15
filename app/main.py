@@ -1,7 +1,8 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from app.config import get_settings
@@ -34,11 +35,12 @@ app = FastAPI(
 app.include_router(auth.router, prefix=settings.api_prefix)
 app.include_router(tasks.router, prefix=settings.api_prefix)
 app.include_router(projects.router, prefix=settings.api_prefix)
+app.mount("/static", StaticFiles(directory="web"), name="static")
 
 
 @app.get("/", include_in_schema=False)
 def root():
-    return {"service": settings.app_name, "docs": "/docs", "health": "/healthz"}
+    return FileResponse("web/index.html")
 
 
 @app.get("/healthz", tags=["operations"], summary="Check application and database health")
