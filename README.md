@@ -17,6 +17,7 @@ This project demonstrates API design, authentication, relational data modeling, 
 - **Flexible shopping:** add items using your household's own names, amounts, and categories; set urgent/high/normal/low priority, a need-by day, and notes
 - **Shopping flow:** unpurchased items sort by priority and deadline; marking something picked up moves it out of the active queue, with an easy undo
 - **Family Tasks:** a shared chores, errands, and plans board with assignment, priority, due dates, notes, status, and completion tracking
+- **Household transparency:** see household members at a glance and see who added each grocery item or family task
 - **Personal and shared separation:** personal task records stay scoped to their account; Family Tasks are visible only to household members
 - **Access control:** household lists are visible only to authenticated members; invite codes can be reset by their owner
 - **Data and operations:** SQLAlchemy 2 ORM, Alembic migrations, SQLite development database, PostgreSQL deployment profile, Docker Compose, and `/healthz`

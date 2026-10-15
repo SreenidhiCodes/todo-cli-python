@@ -6,6 +6,7 @@ const state = {
   households: [], groceryLists: [], householdId: null, groceryListId: null, groceryItems: [],
   groceryFilter: "needed", grocerySearch: "", editingGroceryItem: null,
   familyTasks: [], familyMembers: [], familyFilter: "all", familySearch: "", editingFamilyTask: null,
+  householdMembers: [],
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -188,7 +189,7 @@ async function loadFamilyWorkspace() {
   if (!state.households.some((household) => household.id === state.householdId)) state.householdId = state.households[0]?.id ?? null;
   const select = $("#family-household-select"); select.replaceChildren();
   state.households.forEach((household) => { const option = document.createElement("option"); option.value = household.id; option.textContent = household.name; select.append(option); });
-  if (!state.householdId) { select.classList.add("hidden"); $("#family-no-household").classList.remove("hidden"); $("#family-task-content").classList.add("hidden"); return; }
+  if (!state.householdId) { select.classList.add("hidden"); $("#family-no-household").classList.remove("hidden"); $("#family-task-content").classList.add("hidden"); $("#family-household-roster").classList.add("hidden"); return; }
   select.classList.remove("hidden"); select.value = String(state.householdId);
   $("#family-no-household").classList.add("hidden"); $("#family-task-content").classList.remove("hidden");
   const [members, summary] = await Promise.all([
@@ -196,6 +197,8 @@ async function loadFamilyWorkspace() {
     api(`/family-tasks/households/${state.householdId}/summary`),
   ]);
   state.familyMembers = members;
+  state.householdMembers = members;
+  renderHouseholdMembers("#family-member-list", "#family-member-count", "#family-household-roster", members);
   const assignee = $("#family-assignee"); assignee.replaceChildren();
   const none = document.createElement("option"); none.value = ""; none.textContent = "Anyone in the family"; assignee.append(none);
   members.forEach((member) => { const option = document.createElement("option"); option.value = member.user_id; option.textContent = member.full_name; assignee.append(option); });
@@ -258,12 +261,18 @@ async function loadGroceryWorkspace() {
   const select = $("#household-select"); select.replaceChildren();
   state.households.forEach((household) => { const option = document.createElement("option"); option.value = household.id; option.textContent = household.name; select.append(option); });
   if (!state.households.some((household) => household.id === state.householdId)) state.householdId = state.households[0]?.id ?? null;
-  if (!state.householdId) { $("#grocery-empty-household").classList.remove("hidden"); $("#grocery-empty-list").classList.add("hidden"); $("#grocery-content").classList.add("hidden"); select.classList.add("hidden"); $("#grocery-list-select").classList.add("hidden"); return; }
+  if (!state.householdId) { $("#grocery-empty-household").classList.remove("hidden"); $("#grocery-empty-list").classList.add("hidden"); $("#grocery-content").classList.add("hidden"); $("#grocery-household-roster").classList.add("hidden"); select.classList.add("hidden"); $("#grocery-list-select").classList.add("hidden"); return; }
   select.classList.remove("hidden"); select.value = String(state.householdId);
   const household = state.households.find((entry) => entry.id === state.householdId);
   $("#household-share").classList.remove("hidden"); $("#invite-code-value").textContent = household.invite_code;
   $("#household-create-form").classList.add("hidden");
-  state.groceryLists = await api(`/groceries/households/${state.householdId}/lists`);
+  const [members, lists] = await Promise.all([
+    api(`/groceries/households/${state.householdId}/members`),
+    api(`/groceries/households/${state.householdId}/lists`),
+  ]);
+  state.householdMembers = members;
+  renderHouseholdMembers("#grocery-member-list", "#grocery-member-count", "#grocery-household-roster", members);
+  state.groceryLists = lists;
   const listSelect = $("#grocery-list-select"); listSelect.replaceChildren();
   state.groceryLists.forEach((entry) => { const option = document.createElement("option"); option.value = entry.id; option.textContent = entry.name; listSelect.append(option); });
   if (!state.groceryLists.some((entry) => entry.id === state.groceryListId)) state.groceryListId = state.groceryLists[0]?.id ?? null;
@@ -297,6 +306,7 @@ function renderGroceryItem(item) {
   const priority = document.createElement("span"); priority.className = `priority priority-${item.priority === "normal" ? "medium" : item.priority}`; priority.textContent = item.priority; titleLine.append(priority); content.append(titleLine);
   if (item.notes) { const note = document.createElement("p"); note.className = "task-description"; note.textContent = item.notes; content.append(note); }
   const meta = document.createElement("div"); meta.className = "task-meta";
+  const author = document.createElement("span"); author.className = "item-author"; author.textContent = item.added_by_name ? `Added by ${item.added_by_name}` : "Added before activity tracking"; meta.append(author);
   if (item.quantity) { const quantity = document.createElement("span"); quantity.textContent = `× ${item.quantity}`; meta.append(quantity); }
   if (item.category) { const category = document.createElement("span"); category.className = "tag-label"; category.textContent = item.category; meta.append(category); }
   if (item.deadline) { const date = new Date(`${item.deadline}T00:00:00`); const due = document.createElement("span"); due.className = `due-label ${!item.is_purchased && date < new Date(new Date().toDateString()) ? "overdue" : ""}`; due.textContent = item.is_purchased ? "Picked up" : niceDue(item.deadline); meta.append(due); }
@@ -307,6 +317,20 @@ function renderGroceryItem(item) {
   prioritySelect.addEventListener("change", () => updateGroceryItem(item, { priority: prioritySelect.value }));
   const remove = document.createElement("button"); remove.className = "icon-button task-remove"; remove.textContent = "×"; remove.title = "Remove item"; remove.addEventListener("click", () => deleteGroceryItem(item));
   actions.append(prioritySelect, remove); row.append(check, content, actions); return row;
+}
+
+function renderHouseholdMembers(listSelector, countSelector, sectionSelector, members) {
+  const list = $(listSelector); list.replaceChildren();
+  members.forEach((member) => {
+    const chip = document.createElement("div"); chip.className = "member-chip";
+    const avatar = document.createElement("span"); avatar.className = "member-avatar"; avatar.textContent = member.full_name.trim().charAt(0).toUpperCase();
+    const name = document.createElement("strong"); name.textContent = member.full_name;
+    const role = document.createElement("small"); role.textContent = member.role === "owner" ? "Household owner" : "Member";
+    if (member.user_id === state.user?.id) role.textContent = member.role === "owner" ? "You · owner" : "You";
+    const identity = document.createElement("span"); identity.className = "member-identity"; identity.append(name, role); chip.append(avatar, identity); list.append(chip);
+  });
+  $(countSelector).textContent = `${members.length} ${members.length === 1 ? "member" : "members"}`;
+  $(sectionSelector).classList.toggle("hidden", members.length === 0);
 }
 
 async function updateGroceryItem(item, changes) { try { await api(`/groceries/items/${item.id}`, { method: "PATCH", body: JSON.stringify(changes) }); await loadGroceryItems(); } catch (error) { toast(error.message, "error"); } }

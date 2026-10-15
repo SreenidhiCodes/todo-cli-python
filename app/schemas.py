@@ -181,6 +181,8 @@ class GroceryItemPublic(BaseModel):
     deadline: date | None
     notes: str
     is_purchased: bool
+    added_by_id: int | None
+    added_by_name: str | None = None
     purchased_at: datetime | None
     created_at: datetime
     updated_at: datetime

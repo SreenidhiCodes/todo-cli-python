@@ -74,10 +74,16 @@ class GroceryItem(Base):
     deadline: Mapped[date | None] = mapped_column(Date, nullable=True)
     notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
     is_purchased: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    added_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     purchased_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
     grocery_list: Mapped[GroceryList] = relationship(back_populates="items")
+    added_by: Mapped[User | None] = relationship(foreign_keys=[added_by_id])
+
+    @property
+    def added_by_name(self) -> str | None:
+        return self.added_by.full_name if self.added_by else None
 
 
 class FamilyTask(Base):

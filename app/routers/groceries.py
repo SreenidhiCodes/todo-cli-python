@@ -4,7 +4,7 @@ import string
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import case, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -116,8 +116,9 @@ def list_items(list_id: int, purchased: str = Query(default="all", pattern="^(al
         query = query.where(GroceryItem.name.ilike(needle) | GroceryItem.category.ilike(needle) | GroceryItem.notes.ilike(needle))
     priority_order = case((GroceryItem.priority == "urgent", 0), (GroceryItem.priority == "high", 1),
                           (GroceryItem.priority == "normal", 2), else_=3)
-    return list(db.scalars(query.order_by(GroceryItem.is_purchased.asc(), priority_order,
-                                         GroceryItem.deadline.asc().nullslast(), GroceryItem.created_at.asc())).all())
+    return list(db.scalars(query.options(joinedload(GroceryItem.added_by)).order_by(
+        GroceryItem.is_purchased.asc(), priority_order, GroceryItem.deadline.asc().nullslast(),
+        GroceryItem.created_at.asc())).all())
 
 
 @router.get("/lists/{list_id}/summary")
@@ -135,7 +136,7 @@ def list_summary(list_id: int, db: Session = Depends(get_db), user: User = Depen
 @router.post("/lists/{list_id}/items", response_model=GroceryItemPublic, status_code=status.HTTP_201_CREATED)
 def create_item(list_id: int, payload: GroceryItemCreate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     require_list(db, list_id, user.id)
-    item = GroceryItem(list_id=list_id, **payload.model_dump())
+    item = GroceryItem(list_id=list_id, added_by_id=user.id, **payload.model_dump())
     db.add(item)
     db.commit()
     db.refresh(item)
