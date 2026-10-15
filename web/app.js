@@ -3,6 +3,8 @@ const tokenKey = "taskflow_access_token";
 const state = {
   token: localStorage.getItem(tokenKey), user: null, projects: [], tasks: [], view: "today",
   filter: "all", search: "", sort: "created", offset: 0, total: 0, limit: 100,
+  households: [], groceryLists: [], householdId: null, groceryListId: null, groceryItems: [],
+  groceryFilter: "needed", grocerySearch: "", editingGroceryItem: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -132,6 +134,10 @@ function renderTask(task) {
 }
 
 function render() {
+  if (state.view === "groceries") { showGroceryWorkspace(); return; }
+  ["#task-welcome", "#task-stats", "#task-panel"].forEach((selector) => $(selector).classList.remove("hidden"));
+  $("#grocery-workspace").classList.add("hidden");
+  $("#quick-add").classList.remove("hidden");
   const list = $("#task-list"); list.replaceChildren();
   const tasks = getVisibleTasks();
   tasks.forEach((task) => list.append(renderTask(task)));
@@ -154,6 +160,80 @@ function render() {
   $("#empty-copy").textContent = state.view === "done" ? "Finish a task and it’ll find its way here." : "Nothing on your list yet. Add a task and make a start.";
   document.querySelectorAll(".nav-item").forEach((item) => item.classList.toggle("active", item.dataset.view === state.view));
   document.querySelectorAll(".project-item").forEach((item) => item.classList.toggle("active", state.view === `project:${item.dataset.projectId}`));
+}
+
+function showGroceryWorkspace() {
+  ["#task-welcome", "#task-stats", "#task-panel"].forEach((selector) => $(selector).classList.add("hidden"));
+  $("#grocery-workspace").classList.remove("hidden"); $("#quick-add").classList.add("hidden");
+  $("#view-crumb").textContent = "Groceries";
+  document.querySelectorAll(".nav-item").forEach((item) => item.classList.toggle("active", item.dataset.view === "groceries"));
+}
+
+async function loadGroceryWorkspace() {
+  showGroceryWorkspace();
+  state.households = await api("/groceries/households");
+  const select = $("#household-select"); select.replaceChildren();
+  state.households.forEach((household) => { const option = document.createElement("option"); option.value = household.id; option.textContent = household.name; select.append(option); });
+  if (!state.households.some((household) => household.id === state.householdId)) state.householdId = state.households[0]?.id ?? null;
+  if (!state.householdId) { $("#grocery-empty-household").classList.remove("hidden"); $("#grocery-empty-list").classList.add("hidden"); $("#grocery-content").classList.add("hidden"); select.classList.add("hidden"); $("#grocery-list-select").classList.add("hidden"); return; }
+  select.classList.remove("hidden"); select.value = String(state.householdId);
+  const household = state.households.find((entry) => entry.id === state.householdId);
+  $("#household-share").classList.remove("hidden"); $("#invite-code-value").textContent = household.invite_code;
+  $("#household-create-form").classList.add("hidden");
+  state.groceryLists = await api(`/groceries/households/${state.householdId}/lists`);
+  const listSelect = $("#grocery-list-select"); listSelect.replaceChildren();
+  state.groceryLists.forEach((entry) => { const option = document.createElement("option"); option.value = entry.id; option.textContent = entry.name; listSelect.append(option); });
+  if (!state.groceryLists.some((entry) => entry.id === state.groceryListId)) state.groceryListId = state.groceryLists[0]?.id ?? null;
+  if (!state.groceryListId) { $("#grocery-empty-household").classList.add("hidden"); $("#grocery-empty-list").classList.remove("hidden"); $("#grocery-content").classList.add("hidden"); listSelect.classList.add("hidden"); return; }
+  listSelect.classList.remove("hidden"); listSelect.value = String(state.groceryListId);
+  $("#grocery-empty-household").classList.add("hidden"); $("#grocery-empty-list").classList.add("hidden"); $("#grocery-content").classList.remove("hidden");
+  await loadGroceryItems();
+}
+
+async function loadGroceryItems() {
+  if (!state.groceryListId) return;
+  const params = new URLSearchParams({ purchased: state.groceryFilter });
+  if (state.grocerySearch.trim()) params.set("search", state.grocerySearch.trim());
+  const [items, summary] = await Promise.all([api(`/groceries/lists/${state.groceryListId}/items?${params}`), api(`/groceries/lists/${state.groceryListId}/summary`)]);
+  state.groceryItems = items;
+  $("#grocery-needed").textContent = summary.needed; $("#grocery-overdue").textContent = summary.overdue; $("#grocery-purchased").textContent = summary.purchased;
+  const list = $("#grocery-items"); list.replaceChildren(); items.forEach((item) => list.append(renderGroceryItem(item)));
+  $("#grocery-result-count").textContent = `${items.length} ${items.length === 1 ? "item" : "items"}`;
+  $("#grocery-no-items").classList.toggle("hidden", items.length !== 0);
+  document.querySelectorAll("[data-grocery-filter]").forEach((button) => button.classList.toggle("selected", button.dataset.groceryFilter === state.groceryFilter));
+}
+
+function renderGroceryItem(item) {
+  const row = document.createElement("article"); row.className = `task-row grocery-row ${item.is_purchased ? "is-done" : ""}`;
+  const check = document.createElement("button"); check.className = `task-check ${item.is_purchased ? "checked" : ""}`; check.textContent = item.is_purchased ? "✓" : "";
+  check.setAttribute("aria-label", item.is_purchased ? "Move back to needed" : "Mark picked up");
+  check.addEventListener("click", () => updateGroceryItem(item, { is_purchased: !item.is_purchased }));
+  const content = document.createElement("div"); content.className = "task-main";
+  const titleLine = document.createElement("div"); titleLine.className = "task-title-line";
+  const title = document.createElement("button"); title.className = "task-title"; title.textContent = item.name; title.addEventListener("click", () => openGroceryItem(item)); titleLine.append(title);
+  const priority = document.createElement("span"); priority.className = `priority priority-${item.priority === "normal" ? "medium" : item.priority}`; priority.textContent = item.priority; titleLine.append(priority); content.append(titleLine);
+  if (item.notes) { const note = document.createElement("p"); note.className = "task-description"; note.textContent = item.notes; content.append(note); }
+  const meta = document.createElement("div"); meta.className = "task-meta";
+  if (item.quantity) { const quantity = document.createElement("span"); quantity.textContent = `× ${item.quantity}`; meta.append(quantity); }
+  if (item.category) { const category = document.createElement("span"); category.className = "tag-label"; category.textContent = item.category; meta.append(category); }
+  if (item.deadline) { const date = new Date(`${item.deadline}T00:00:00`); const due = document.createElement("span"); due.className = `due-label ${!item.is_purchased && date < new Date(new Date().toDateString()) ? "overdue" : ""}`; due.textContent = item.is_purchased ? "Picked up" : niceDue(item.deadline); meta.append(due); }
+  content.append(meta);
+  const actions = document.createElement("div"); actions.className = "task-actions";
+  const prioritySelect = document.createElement("select"); prioritySelect.className = "status-select grocery-priority-select"; prioritySelect.setAttribute("aria-label", "Change item priority");
+  [["urgent", "Urgent"], ["high", "High"], ["normal", "Normal"], ["low", "Low"]].forEach(([value, label]) => { const option = document.createElement("option"); option.value = value; option.textContent = label; option.selected = item.priority === value; prioritySelect.append(option); });
+  prioritySelect.addEventListener("change", () => updateGroceryItem(item, { priority: prioritySelect.value }));
+  const remove = document.createElement("button"); remove.className = "icon-button task-remove"; remove.textContent = "×"; remove.title = "Remove item"; remove.addEventListener("click", () => deleteGroceryItem(item));
+  actions.append(prioritySelect, remove); row.append(check, content, actions); return row;
+}
+
+async function updateGroceryItem(item, changes) { try { await api(`/groceries/items/${item.id}`, { method: "PATCH", body: JSON.stringify(changes) }); await loadGroceryItems(); } catch (error) { toast(error.message, "error"); } }
+async function deleteGroceryItem(item) { if (!confirm(`Remove “${item.name}” from this list?`)) return; try { await api(`/groceries/items/${item.id}`, { method: "DELETE" }); toast("Item removed."); await loadGroceryItems(); } catch (error) { toast(error.message, "error"); } }
+function openGroceryItem(item = null) {
+  if (!state.groceryListId) { toast("Create a grocery list first.", "error"); return; }
+  state.editingGroceryItem = item; $("#grocery-item-form").reset();
+  $("#grocery-item-heading").textContent = item ? "Edit item" : "Add an item";
+  if (item) { $("#grocery-name").value = item.name; $("#grocery-quantity").value = item.quantity; $("#grocery-category").value = item.category; $("#grocery-priority").value = item.priority; $("#grocery-deadline").value = item.deadline || ""; $("#grocery-notes").value = item.notes; }
+  $("#grocery-item-dialog").showModal(); setTimeout(() => $("#grocery-name").focus(), 50);
 }
 
 async function loadTasks(reset = true) {
@@ -265,9 +345,9 @@ $("#empty-add").addEventListener("click", openTaskDialog);
 $("#load-more").addEventListener("click", () => loadTasks(false).catch((error) => toast(error.message, "error")));
 $("#sort-select").addEventListener("change", (event) => { state.sort = event.target.value; loadTasks(); });
 $("#task-search").addEventListener("input", (event) => { clearTimeout(state.searchTimer); state.search = event.target.value; state.searchTimer = setTimeout(() => loadTasks(), 300); });
-document.querySelectorAll(".nav-item").forEach((item) => item.addEventListener("click", () => { state.view = item.dataset.view; state.filter = "all"; setFilterChips(); loadTasks(); }));
+document.querySelectorAll(".nav-item").forEach((item) => item.addEventListener("click", () => { state.view = item.dataset.view; state.filter = "all"; setFilterChips(); if (state.view === "groceries") loadGroceryWorkspace().catch((error) => toast(error.message, "error")); else loadTasks(); }));
 document.querySelectorAll(".filter-chip").forEach((chip) => chip.addEventListener("click", () => { state.filter = chip.dataset.filter; setFilterChips(); loadTasks(); }));
-$("#add-project-open").addEventListener("click", () => $("#project-dialog").showModal());
+$("#add-project-open").addEventListener("click", () => { if (state.view === "groceries") $("#grocery-list-dialog").showModal(); else $("#project-dialog").showModal(); });
 $("#project-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
@@ -290,6 +370,21 @@ $("#task-form").addEventListener("submit", async (event) => {
 });
 document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => $(`#${button.dataset.close}`).close()));
 document.querySelectorAll("dialog").forEach((dialog) => dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); }));
+
+$("#household-select").addEventListener("change", (event) => { state.householdId = Number(event.target.value); state.groceryListId = null; loadGroceryWorkspace().catch((error) => toast(error.message, "error")); });
+$("#grocery-list-select").addEventListener("change", (event) => { state.groceryListId = Number(event.target.value); loadGroceryItems().catch((error) => toast(error.message, "error")); });
+$("#grocery-search").addEventListener("input", (event) => { clearTimeout(state.grocerySearchTimer); state.grocerySearch = event.target.value; state.grocerySearchTimer = setTimeout(() => loadGroceryItems().catch((error) => toast(error.message, "error")), 250); });
+document.querySelectorAll("[data-grocery-filter]").forEach((button) => button.addEventListener("click", () => { state.groceryFilter = button.dataset.groceryFilter; loadGroceryItems().catch((error) => toast(error.message, "error")); }));
+$("#add-grocery").addEventListener("click", () => openGroceryItem()); $("#empty-add-grocery").addEventListener("click", () => openGroceryItem());
+$("#first-household").addEventListener("click", () => { $("#household-create-form").classList.remove("hidden"); $("#household-share").classList.add("hidden"); $("#new-grocery-list").classList.add("hidden"); $("#household-dialog").showModal(); });
+$("#manage-household").addEventListener("click", () => { $("#household-create-form").classList.toggle("hidden", state.households.length > 0); $("#household-share").classList.toggle("hidden", state.households.length === 0); $("#new-grocery-list").classList.toggle("hidden", state.households.length === 0); if (state.households.length) $("#invite-code-value").textContent = state.households.find((entry) => entry.id === state.householdId)?.invite_code || ""; $("#household-dialog").showModal(); });
+$("#first-grocery-list").addEventListener("click", () => $("#grocery-list-dialog").showModal()); $("#new-grocery-list").addEventListener("click", () => { $("#household-dialog").close(); $("#grocery-list-dialog").showModal(); });
+$("#household-create-form").addEventListener("submit", async (event) => { event.preventDefault(); try { const household = await api("/groceries/households", { method: "POST", body: JSON.stringify({ name: $("#household-name").value.trim() }) }); state.householdId = household.id; state.groceryListId = null; $("#household-dialog").close(); toast("Household created. Share the invite code to plan together."); await loadGroceryWorkspace(); $("#household-dialog").showModal(); } catch (error) { toast(error.message, "error"); } });
+$("#household-join-form").addEventListener("submit", async (event) => { event.preventDefault(); try { const household = await api("/groceries/households/join", { method: "POST", body: JSON.stringify({ invite_code: $("#household-code").value.trim() }) }); state.householdId = household.id; state.groceryListId = null; $("#household-dialog").close(); toast(`You joined ${household.name}.`); await loadGroceryWorkspace(); } catch (error) { toast(error.message, "error"); } });
+$("#copy-invite").addEventListener("click", async () => { try { await navigator.clipboard.writeText($("#invite-code-value").textContent); toast("Invite code copied."); } catch { toast("Select and copy the invite code.", "error"); } });
+$("#rotate-invite").addEventListener("click", async () => { const household = state.households.find((entry) => entry.id === state.householdId); if (!household || !confirm("Reset this code? Anyone with the old code will no longer be able to join.")) return; try { await api(`/groceries/households/${household.id}/rotate-code`, { method: "POST" }); await loadGroceryWorkspace(); toast("Invite code reset."); $("#household-dialog").showModal(); } catch (error) { toast(error.message, "error"); } });
+$("#grocery-list-form").addEventListener("submit", async (event) => { event.preventDefault(); try { const list = await api(`/groceries/households/${state.householdId}/lists`, { method: "POST", body: JSON.stringify({ name: $("#grocery-list-name").value.trim() }) }); state.groceryListId = list.id; $("#grocery-list-dialog").close(); toast("Grocery list created."); await loadGroceryWorkspace(); } catch (error) { toast(error.message, "error"); } });
+$("#grocery-item-form").addEventListener("submit", async (event) => { event.preventDefault(); const body = { name: $("#grocery-name").value.trim(), quantity: $("#grocery-quantity").value.trim(), category: $("#grocery-category").value.trim(), priority: $("#grocery-priority").value, deadline: $("#grocery-deadline").value || null, notes: $("#grocery-notes").value.trim() }; try { if (state.editingGroceryItem) await api(`/groceries/items/${state.editingGroceryItem.id}`, { method: "PATCH", body: JSON.stringify(body) }); else await api(`/groceries/lists/${state.groceryListId}/items`, { method: "POST", body: JSON.stringify(body) }); $("#grocery-item-dialog").close(); toast(state.editingGroceryItem ? "Item updated." : "Item added."); await loadGroceryItems(); } catch (error) { toast(error.message, "error"); } });
 
 setAuthMode(false);
 if (state.token) reloadAll();

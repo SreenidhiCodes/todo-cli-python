@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints, field_validator
@@ -116,3 +116,71 @@ class TaskStats(BaseModel):
     in_progress: int
     done: int
     overdue: int
+
+
+GroceryPriority = Literal["low", "normal", "high", "urgent"]
+
+
+class HouseholdCreate(BaseModel):
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+
+
+class HouseholdJoin(BaseModel):
+    invite_code: Annotated[str, StringConstraints(strip_whitespace=True, min_length=6, max_length=24)]
+
+
+class HouseholdPublic(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    invite_code: str
+    created_by_id: int
+    created_at: datetime
+
+
+class GroceryListCreate(BaseModel):
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+
+
+class GroceryListPublic(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    household_id: int
+    name: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class GroceryItemCreate(BaseModel):
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+    quantity: Annotated[str, Field(max_length=80)] = ""
+    category: Annotated[str, Field(max_length=80)] = ""
+    priority: GroceryPriority = "normal"
+    deadline: date | None = None
+    notes: Annotated[str, Field(max_length=5000)] = ""
+
+
+class GroceryItemUpdate(BaseModel):
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)] | None = None
+    quantity: Annotated[str, Field(max_length=80)] | None = None
+    category: Annotated[str, Field(max_length=80)] | None = None
+    priority: GroceryPriority | None = None
+    deadline: date | None = None
+    notes: Annotated[str, Field(max_length=5000)] | None = None
+    is_purchased: bool | None = None
+
+
+class GroceryItemPublic(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    list_id: int
+    name: str
+    quantity: str
+    category: str
+    priority: GroceryPriority
+    deadline: date | None
+    notes: str
+    is_purchased: bool
+    purchased_at: datetime | None
+    created_at: datetime
+    updated_at: datetime

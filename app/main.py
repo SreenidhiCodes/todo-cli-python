@@ -7,7 +7,7 @@ from sqlalchemy import text
 
 from app.config import get_settings
 from app.database import engine
-from app.routers import auth, projects, tasks
+from app.routers import auth, groceries, projects, tasks
 
 settings = get_settings()
 
@@ -25,7 +25,7 @@ app = FastAPI(
     version="1.0.0",
     description=(
         "A multi-user task management API with JWT authentication, projects, priorities, "
-        "due dates, tags, filtering, pagination, and personal task statistics."
+        "due dates, tags, shared household grocery planning, filtering, and statistics."
     ),
     openapi_url="/api/v1/openapi.json",
     docs_url="/docs",
@@ -35,6 +35,7 @@ app = FastAPI(
 app.include_router(auth.router, prefix=settings.api_prefix)
 app.include_router(tasks.router, prefix=settings.api_prefix)
 app.include_router(projects.router, prefix=settings.api_prefix)
+app.include_router(groceries.router, prefix=settings.api_prefix)
 app.mount("/static", StaticFiles(directory="web"), name="static")
 
 

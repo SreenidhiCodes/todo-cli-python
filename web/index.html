@@ -53,6 +53,7 @@
         <button class="nav-item" data-view="todo"><span class="nav-icon">○</span> To do</button>
         <button class="nav-item" data-view="in_progress"><span class="nav-icon">◉</span> In progress</button>
         <button class="nav-item" data-view="done"><span class="nav-icon">✓</span> Completed</button>
+        <button class="nav-item" data-view="groceries"><span class="nav-icon">🛒</span> Groceries</button>
       </nav>
       <div class="sidebar-section-head"><span class="sidebar-label">PROJECTS</span><button id="add-project-open" class="icon-button small" title="New project">＋</button></div>
       <div id="project-list" class="project-list"></div>
@@ -65,21 +66,35 @@
     <main class="main-content">
       <header class="topbar"><div class="crumb"><span>Workspace</span><span class="crumb-slash">/</span><strong id="view-crumb">Today</strong></div><div class="top-actions"><span class="today-date" id="header-date"></span><button id="quick-add" class="button button-primary"><span>＋</span> New task</button></div></header>
       <div class="content-wrap">
-        <section class="welcome-row"><div><div class="eyebrow" id="welcome-date"></div><h1 id="page-title">Today, at your pace.</h1><p id="page-subtitle" class="muted">A clear mind starts with a clear list.</p></div><div class="welcome-mark">✳</div></section>
+        <section id="task-welcome" class="welcome-row"><div><div class="eyebrow" id="welcome-date"></div><h1 id="page-title">Today, at your pace.</h1><p id="page-subtitle" class="muted">A clear mind starts with a clear list.</p></div><div class="welcome-mark">✳</div></section>
 
-        <section class="stats-grid" aria-label="Task summary">
+        <section id="task-stats" class="stats-grid" aria-label="Task summary">
           <article class="stat-card"><div class="stat-top"><span>All tasks</span><span class="stat-icon lavender">▤</span></div><strong id="stat-total">0</strong><small>in your workspace</small></article>
           <article class="stat-card"><div class="stat-top"><span>To do</span><span class="stat-icon blue">○</span></div><strong id="stat-todo">0</strong><small>ready when you are</small></article>
           <article class="stat-card"><div class="stat-top"><span>In progress</span><span class="stat-icon amber">◉</span></div><strong id="stat-progress">0</strong><small>currently underway</small></article>
           <article class="stat-card"><div class="stat-top"><span>Completed</span><span class="stat-icon green">✓</span></div><strong id="stat-done">0</strong><small>nice work</small></article>
         </section>
 
-        <section class="task-panel">
+        <section id="task-panel" class="task-panel">
           <div class="panel-heading"><div><h2 id="list-title">Today's focus</h2><p id="list-caption">Your next steps, all in one place.</p></div><div class="list-tools"><label class="search-box"><span>⌕</span><input id="task-search" type="search" placeholder="Search tasks" aria-label="Search tasks"></label><select id="sort-select" aria-label="Sort tasks"><option value="created">Recently added</option><option value="due">Due date</option><option value="priority">Priority</option><option value="title">Title</option></select></div></div>
           <div class="filter-row"><button class="filter-chip selected" data-filter="all">Everything</button><button class="filter-chip" data-filter="todo">To do</button><button class="filter-chip" data-filter="in_progress">In progress</button><button class="filter-chip" data-filter="done">Completed</button><span id="result-count" class="result-count"></span></div>
           <div id="task-list" class="task-list"></div>
           <div id="empty-state" class="empty-state hidden"><div class="empty-illustration">✳</div><h3 id="empty-title">A little breathing room.</h3><p id="empty-copy">Nothing on your list yet. Add a task and make a start.</p><button id="empty-add" class="button button-soft">＋ Add your first task</button></div>
           <div id="load-more-wrap" class="load-more-wrap hidden"><button id="load-more" class="button button-soft">Load more tasks</button></div>
+        </section>
+        <section id="grocery-workspace" class="hidden">
+          <div class="welcome-row"><div><div class="eyebrow">THE HOUSEHOLD, IN SYNC</div><h1>Groceries, made simple.</h1><p class="muted">A shared list that fits your home. Add items in your own words.</p></div><div class="welcome-mark">🛒</div></div>
+          <div class="grocery-toolbar">
+            <div class="grocery-context"><select id="household-select" aria-label="Choose household"></select><select id="grocery-list-select" aria-label="Choose grocery list"></select></div>
+            <div class="grocery-buttons"><button id="manage-household" class="button button-soft">Household & sharing</button><button id="add-grocery" class="button button-primary">＋ Add item</button></div>
+          </div>
+          <div id="grocery-empty-household" class="grocery-setup hidden"><div class="empty-illustration">⌂</div><h2>Start a household list</h2><p>Create a space for your home, then invite everyone with a private code.</p><button class="button button-primary" id="first-household">Create household</button></div>
+          <div id="grocery-empty-list" class="grocery-setup hidden"><h2>Your household is ready</h2><p>Create a list for this week, a celebration, or any shopping trip.</p><button class="button button-primary" id="first-grocery-list">＋ Create a grocery list</button></div>
+          <div id="grocery-content" class="hidden">
+            <div class="grocery-stats"><article class="stat-card"><div class="stat-top"><span>Still needed</span><span class="stat-icon lavender">○</span></div><strong id="grocery-needed">0</strong><small>waiting in this list</small></article><article class="stat-card"><div class="stat-top"><span>Coming due</span><span class="stat-icon amber">◷</span></div><strong id="grocery-overdue">0</strong><small>past its target day</small></article><article class="stat-card"><div class="stat-top"><span>In the basket</span><span class="stat-icon green">✓</span></div><strong id="grocery-purchased">0</strong><small>already picked up</small></article></div>
+            <section class="task-panel grocery-panel"><div class="panel-heading"><div><h2>Your shopping plan</h2><p>Urgent items and close deadlines stay near the top.</p></div><label class="search-box"><span>⌕</span><input id="grocery-search" type="search" placeholder="Find an item or category" aria-label="Search grocery items"></label></div><div class="filter-row grocery-filter"><button class="filter-chip selected" data-grocery-filter="needed">To pick up</button><button class="filter-chip" data-grocery-filter="all">Everything</button><button class="filter-chip" data-grocery-filter="purchased">Picked up</button><span id="grocery-result-count" class="result-count"></span></div><div id="grocery-items" class="task-list"></div><div id="grocery-no-items" class="empty-state hidden"><div class="empty-illustration">✳</div><h3>Nothing to pick up right now.</h3><p>Add anything your household needs. Names and categories are yours to choose.</p><button class="button button-soft" id="empty-add-grocery">＋ Add an item</button></div></section>
+          </div>
+          <footer class="page-footer"><span>Good plans make room for real life.</span><span>TaskFlow Groceries</span></footer>
         </section>
         <footer class="page-footer"><span>Made for your next small win.</span><span>TaskFlow <span class="footer-dot">·</span> <a href="/healthz" target="_blank" rel="noreferrer">System status</a></span></footer>
       </div>
@@ -106,6 +121,18 @@
       <div class="modal-actions"><button type="button" class="button button-quiet" data-close="project-dialog">Cancel</button><button class="button button-primary" type="submit">Create project <span>→</span></button></div>
     </form>
   </dialog>
+  <dialog id="grocery-item-dialog" class="modal">
+    <form id="grocery-item-form" method="dialog">
+      <div class="modal-heading"><div><span class="eyebrow">HOUSEHOLD SHOPPING</span><h2 id="grocery-item-heading">Add an item</h2></div><button class="icon-button" type="button" data-close="grocery-item-dialog" aria-label="Close">×</button></div>
+      <label class="field">What do you call it?<input id="grocery-name" required maxlength="200" placeholder="Use the name your household knows"></label>
+      <div class="field-grid"><label class="field">Amount <span class="optional">optional</span><input id="grocery-quantity" maxlength="80" placeholder="2, one bag, 500 g…"></label><label class="field">Category <span class="optional">your own label</span><input id="grocery-category" maxlength="80" placeholder="For example, breakfast"></label></div>
+      <div class="field-grid"><label class="field">Priority<select id="grocery-priority"><option value="normal">Normal</option><option value="low">Low</option><option value="high">High</option><option value="urgent">Urgent</option></select></label><label class="field">Need it by<input id="grocery-deadline" type="date"></label></div>
+      <label class="field">Helpful note <span class="optional">optional</span><textarea id="grocery-notes" rows="2" maxlength="5000" placeholder="Brand, size, who asked, or anything helpful"></textarea></label>
+      <div class="modal-actions"><button type="button" class="button button-quiet" data-close="grocery-item-dialog">Cancel</button><button class="button button-primary" type="submit">Save item <span>→</span></button></div>
+    </form>
+  </dialog>
+  <dialog id="grocery-list-dialog" class="modal modal-small"><form id="grocery-list-form" method="dialog"><div class="modal-heading"><div><span class="eyebrow">MAKE A SHOPPING PLAN</span><h2>New grocery list</h2></div><button class="icon-button" type="button" data-close="grocery-list-dialog" aria-label="Close">×</button></div><label class="field">List name<input id="grocery-list-name" required maxlength="100" placeholder="Weekly shop"></label><div class="modal-actions"><button type="button" class="button button-quiet" data-close="grocery-list-dialog">Cancel</button><button class="button button-primary" type="submit">Create list</button></div></form></dialog>
+  <dialog id="household-dialog" class="modal modal-small"><div class="modal-heading"><div><span class="eyebrow">PLAN TOGETHER</span><h2>Household & sharing</h2></div><button class="icon-button" type="button" data-close="household-dialog" aria-label="Close">×</button></div><div id="household-share" class="household-share hidden"><p class="muted">Share this invite code with family. They can join from their own account.</p><div class="invite-code"><code id="invite-code-value"></code><button id="copy-invite" class="button button-soft">Copy</button></div><button id="rotate-invite" class="text-button">Reset invite code</button></div><form id="household-create-form" class="household-form"><h3>Create a household</h3><label class="field">Household name<input id="household-name" required maxlength="100" placeholder="The Morgan home"></label><button class="button button-primary" type="submit">Create household</button></form><form id="household-join-form" class="household-form"><h3>Join a household</h3><label class="field">Invite code<input id="household-code" required maxlength="24" placeholder="Paste the code shared with you"></label><button class="button button-soft" type="submit">Join household</button></form><div class="modal-actions"><button id="new-grocery-list" type="button" class="button button-soft hidden">＋ New grocery list</button></div></dialog>
   <script src="/static/app.js" defer></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, JSON, String, Text, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -22,6 +22,61 @@ class User(Base):
 
     tasks: Mapped[list["Task"]] = relationship(back_populates="owner", cascade="all, delete-orphan")
     projects: Mapped[list["Project"]] = relationship(back_populates="owner", cascade="all, delete-orphan")
+    household_memberships: Mapped[list["HouseholdMember"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+
+
+class Household(Base):
+    __tablename__ = "households"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    invite_code: Mapped[str] = mapped_column(String(24), unique=True, index=True, nullable=False)
+    created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    memberships: Mapped[list["HouseholdMember"]] = relationship(back_populates="household", cascade="all, delete-orphan")
+    lists: Mapped[list["GroceryList"]] = relationship(back_populates="household", cascade="all, delete-orphan")
+
+
+class HouseholdMember(Base):
+    __tablename__ = "household_members"
+    __table_args__ = (UniqueConstraint("household_id", "user_id", name="uq_household_member"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(ForeignKey("households.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    role: Mapped[str] = mapped_column(String(12), default="member", nullable=False)
+    joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    household: Mapped[Household] = relationship(back_populates="memberships")
+    user: Mapped[User] = relationship(back_populates="household_memberships")
+
+
+class GroceryList(Base):
+    __tablename__ = "grocery_lists"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(ForeignKey("households.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+    household: Mapped[Household] = relationship(back_populates="lists")
+    items: Mapped[list["GroceryItem"]] = relationship(back_populates="grocery_list", cascade="all, delete-orphan")
+
+
+class GroceryItem(Base):
+    __tablename__ = "grocery_items"
+    __table_args__ = (Index("ix_grocery_items_list_purchased_priority", "list_id", "is_purchased", "priority"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    list_id: Mapped[int] = mapped_column(ForeignKey("grocery_lists.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    quantity: Mapped[str] = mapped_column(String(80), default="", nullable=False)
+    category: Mapped[str] = mapped_column(String(80), default="", nullable=False)
+    priority: Mapped[str] = mapped_column(String(10), default="normal", nullable=False)
+    deadline: Mapped[date | None] = mapped_column(Date, nullable=True)
+    notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    is_purchased: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    purchased_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+    grocery_list: Mapped[GroceryList] = relationship(back_populates="items")
 
 
 class Project(Base):

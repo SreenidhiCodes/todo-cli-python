@@ -1,6 +1,6 @@
 # TaskFlow — Task Management API
 
-TaskFlow is a multi-user task manager with a responsive web dashboard and a FastAPI backend. It provides account registration and JWT authentication, personal task lists, project organization, due dates, tags, priority and status workflows, searchable and sortable pagination, and dashboard statistics. The API is documented through OpenAPI and can run on SQLite locally or PostgreSQL with Docker Compose.
+TaskFlow is a multi-user task manager with a responsive web dashboard and a FastAPI backend. It provides account registration and JWT authentication, personal task lists, project organization, and shared household grocery planning. Grocery items use free-form names and categories, flexible quantities, priorities, need-by dates, notes, and a purchase workflow. The API is documented through OpenAPI and can run on SQLite locally or PostgreSQL with Docker Compose.
 
 ## Why this is a portfolio project
 
@@ -13,6 +13,10 @@ This project demonstrates API design, authentication, relational data modeling, 
 - **Organization:** projects with descriptions and colors; task tags, due dates, and optional project assignment
 - **Discovery:** filter tasks by status, priority, project, tag, or due date; search title and description; sort and paginate results
 - **Dashboard:** counts by workflow status and overdue tasks
+- **Household groceries:** create shared household spaces, invite members with private rotating codes, and keep multiple grocery lists together
+- **Flexible shopping:** add items using your household's own names, amounts, and categories; set urgent/high/normal/low priority, a need-by day, and notes
+- **Shopping flow:** unpurchased items sort by priority and deadline; marking something picked up moves it out of the active queue, with an easy undo
+- **Access control:** household lists are visible only to authenticated members; invite codes can be reset by their owner
 - **Data and operations:** SQLAlchemy 2 ORM, Alembic migrations, SQLite development database, PostgreSQL deployment profile, Docker Compose, and `/healthz`
 - **API docs:** interactive Swagger UI at `/docs` and ReDoc at `/redoc`
 - **Web app:** sign in or register at `/`, then create and organize tasks in the dashboard
@@ -83,7 +87,14 @@ Useful endpoints:
 | `GET` | `/api/v1/tasks/stats` | Get the user's task summary |
 | `GET`, `POST` | `/api/v1/projects` | List or create projects |
 | `GET`, `PATCH`, `DELETE` | `/api/v1/projects/{project_id}` | Read, edit, or delete a project |
+| `GET`, `POST` | `/api/v1/groceries/households` | List or create household spaces |
+| `POST` | `/api/v1/groceries/households/join` | Join with an invite code |
+| `GET`, `POST` | `/api/v1/groceries/households/{household_id}/lists` | List or create grocery lists |
+| `GET`, `POST` | `/api/v1/groceries/lists/{list_id}/items` | List or add items |
+| `PATCH`, `DELETE` | `/api/v1/groceries/items/{item_id}` | Update, pick up, or remove an item |
 | `GET` | `/healthz` | Check API and database connectivity |
+
+In the dashboard, open **Groceries**, create a household, then create a list. Share the household invite code with family members; they sign into their own TaskFlow accounts and join using that code. Item names and categories are ordinary text, so each home can use the words it already knows.
 
 Task list query parameters include `status`, `priority`, `project_id`, `tag`, `search`, `due_before`, `sort`, `direction`, `limit` (maximum 100), and `offset`. Example: `GET /api/v1/tasks?status=todo&priority=high&sort=due&direction=asc&limit=20`.
 
@@ -109,10 +120,10 @@ app/
   database.py        SQLAlchemy engine and sessions
   dependencies.py    authenticated-user dependency
   main.py            FastAPI application and health endpoint
-  models.py          user, project, and task models
+  models.py          user, project, task, household, and grocery models
   schemas.py         request and response validation
   security.py        password hashing and JWT creation
-  routers/           authentication, project, and task endpoints
+  routers/           authentication, project, task, and grocery endpoints
 web/
   index.html         responsive browser dashboard
   styles.css         dashboard styles
